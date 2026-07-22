@@ -250,7 +250,14 @@ if (url.includes("/interface/sdk/sdkad.php")) {
     }
   } else if (url.includes("/2/direct_messages/user_list")) {
     if (obj?.user_list?.length > 0) {
-      obj.user_list = obj.user_list.filter((i) => !["活动通知", "闪聊"].includes(i?.user?.name));
+      obj.user_list = obj.user_list.filter((item) => {
+        const feed = item?.direct_message?.feed_info;
+        if (feed?.ad_state === 1 || feed?.ad_state === "1" || feed?.extend_info?.ad) {
+          // 删除推广卡片或整条推广消息
+          return false;
+        }
+        return !["活动通知", "闪聊"].includes(item?.user?.name);
+      });
     }
   } else if (url.includes("/2/flowlist")) {
     // 关注列表
