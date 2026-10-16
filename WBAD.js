@@ -1,13 +1,15 @@
 /*
 引用地址：https://raw.githubusercontent.com/RuCu6/Loon/main/Scripts/weibo.js
 */
-// WBAD - 2026-07-21
+// WBAD - 2026-10-16
+
+function main() {
 
 const url = $request.url;
-if (!$response) {
+if (typeof $response === "undefined" || !$response) {
   // 新版视频流广告素材 CDN：由 WBAD.lpx 的独立开关控制此请求脚本是否启用。
   if (/^https:\/\/ad\.us\.sinaimg\.cn\//i.test(url)) {
-    $done({
+    return $done({
       response: {
         status: 204,
         headers: { "Content-Type": "video/mp4", "Cache-Control": "no-store" },
@@ -15,9 +17,9 @@ if (!$response) {
       }
     });
   }
-  $done({});
+  return $done({});
 }
-if (!$response.body) $done({});
+if (!$response.body) return $done({});
 let body = $response.body;
 
 // 微博详情页菜单配置
@@ -83,7 +85,11 @@ if (url.includes("/interface/sdk/sdkad.php")) {
   $done({ body: JSON.stringify(obj) + "OK" });
 } else {
   let obj = JSON.parse(body);
-  if (url.includes("/2/cardlist")) {
+  if (obj === null || typeof obj !== "object") return $done({});
+  if (/^https:\/\/api\.weibo\.cn\/2\/(?:statuses\/(?:container_timeline(?:_hot|_unread)?|unread_hot_timeline)|flowlist|groups\/allgroups\/v2)\?/.test(url)) {
+    // 保留导航、分组、刷新和分页协议，只删除内容列表中明确标记的广告。
+    if (!url.includes("/groups/allgroups/v2?")) cleanTimeline(obj);
+  } else if (url.includes("/2/cardlist")) {
     if (obj?.top) {
       delete obj.top; // 发现页 趋势 顶部头图
     }
@@ -1541,7 +1547,7 @@ function isAd(data) {
   if (data?.promotion?.recommend === "热推") {
     return true;
   }
-  if (data?.promotion?.type?.includes("ad")) {
+  if ((typeof data?.promotion?.type === "string" && /(?:^|_)ad(?:s|Mblog)?(?:_|$)/i.test(data.promotion.type))) {
     return true;
   }
   if (data?.content_auth_info?.content_auth_title === "广告") {
@@ -1687,4 +1693,27 @@ function removeVoteInfo(item) {
   if (item?.page_info?.media_info?.vote_info) {
     delete item.page_info.media_info.vote_info;
   }
+}
+
+
+// 未知字段和容器原样保留；不按 following、标题、category 白名单推断广告。
+function cleanTimeline(node) {
+  if (!node || typeof node !== "object") return;
+  for (const key of ["items", "statuses"]) {
+    if (!Array.isArray(node[key])) continue;
+    node[key] = node[key].filter(item => {
+      if (!item || typeof item !== "object") return true;
+      return ![item, item.data, item.status, item.mblog].some(isNewVideoFlowAd);
+    });
+    for (const item of node[key]) cleanTimeline(item);
+  }
+}
+
+}
+
+try {
+  main();
+} catch (error) {
+  // 解析或结构变化时放行原响应，避免刷新因脚本异常中断。
+  $done({});
 }

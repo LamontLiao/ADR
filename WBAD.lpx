@@ -8,12 +8,12 @@
 #!loon_version=3.4.0(962)
 #!homepage=https://github.com/LamontLiao/ADR
 #!icon=https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/Weibo.png
-#!date=2026-07-21
+#!date=2026-10-16
 
 [Argument]
 blockVideoFlowAds = switch,true,tag=新版视频流广告,desc=过滤 flow_stream 与 flow_stream_cache 中带有明确广告标记的视频
-blockAdVideoAssets = switch,true,tag=广告视频素材,desc=阻止抓包发现的 ad.us.sinaimg.cn 广告视频素材下载
-blockAdABTests = switch,true,tag=广告 A/B 实验,desc=仅移除名称明确与广告相关的实验项，保留普通功能实验
+blockAdVideoAssets = switch,false,tag=广告视频素材,desc=默认关闭：该域名也可能承载正常视频，开启可能影响播放
+blockAdABTests = switch,false,tag=广告 A/B 实验,desc=默认关闭：修改实验配置可能影响信息流加载，仅供排查使用
 blockSearchHotWords = switch,true,tag=搜索热词,desc=清空搜索框、组件和聚合榜单下发的搜索热词
 
 [Rule]
@@ -98,3 +98,4 @@ http-response ^https:\/\/wbapp\.uve\.weibo\.com\/(?:preload\/get_ad|wbapplua\/wb
 
 [MitM]
 hostname=*.weibo.cn, *.weibo.com, weibo.com, ad.us.sinaimg.cn
+
