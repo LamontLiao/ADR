@@ -6,6 +6,8 @@
 function main() {
 
 const url = $request.url;
+// 首页恢复可莉的内容筛选，但保留存留微博的视觉装饰。
+const preserveHomeDecorations = /^https:\/\/api\.weibo\.cn\/2\/(?:statuses\/(?:container_timeline(?:_hot|_unread)?|unread_hot_timeline)|flowlist|container\/asyn)\?/.test(url);
 if (typeof $response === "undefined" || !$response) {
   // 新版视频流广告素材 CDN：由 WBAD.lpx 的独立开关控制此请求脚本是否启用。
   if (/^https:\/\/ad\.us\.sinaimg\.cn\//i.test(url)) {
@@ -86,10 +88,7 @@ if (url.includes("/interface/sdk/sdkad.php")) {
 } else {
   let obj = JSON.parse(body);
   if (obj === null || typeof obj !== "object") return $done({});
-  if (/^https:\/\/api\.weibo\.cn\/2\/(?:statuses\/(?:container_timeline(?:_hot|_unread)?|unread_hot_timeline)|flowlist|groups\/allgroups\/v2)\?/.test(url)) {
-    // 保留导航、分组、刷新和分页协议，只删除内容列表中明确标记的广告。
-    if (!url.includes("/groups/allgroups/v2?")) cleanTimeline(obj);
-  } else if (url.includes("/2/cardlist")) {
+  if (url.includes("/2/cardlist")) {
     if (obj?.top) {
       delete obj.top; // 发现页 趋势 顶部头图
     }
@@ -657,9 +656,7 @@ if (url.includes("/interface/sdk/sdkad.php")) {
     if (obj?.loginconfig) {
       delete obj.loginconfig; // 登录领红包
     }
-    if (obj?.profile_lotties) {
-      delete obj.profile_lotties; // 个人主页头像挂件素材
-    }
+    // 保留 profile_lotties：头像挂件所需素材。
     if (obj?.ug_red_paper) {
       delete obj.ug_red_paper; // 可能是首页签到弹窗
     }
@@ -1191,9 +1188,6 @@ if (url.includes("/interface/sdk/sdkad.php")) {
       for (let item of obj.items) {
         if (!isAd(item?.data) && !isAd(item?.status)) {
           if (item?.category === "dynamic") {
-            if (item?.status?.action_button_icon_dic) {
-              delete item.status.action_button_icon_dic;
-            }
             removeFeedAd(item?.status); // 信息流推广
             removeVoteInfo(item?.status); // 投票窗口
             if (item.status?.title?.structs) {
@@ -1218,15 +1212,8 @@ if (url.includes("/interface/sdk/sdkad.php")) {
             if (item?.status?.user?.unfollowing_recom_switch === 1) {
               item.status.user.unfollowing_recom_switch = 0;
             }
-            // 博主top100
-            if (item?.status?.tag_struct?.length > 0) {
-              item.status.tag_struct = [];
-            }
             newItems.push(item);
           } else if (item?.category === "feed") {
-            if (item?.data?.action_button_icon_dic) {
-              delete item.data.action_button_icon_dic;
-            }
             removeFeedAd(item?.data); // 信息流推广
             removeVoteInfo(item?.data); // 投票窗口
             if (item.data?.title?.structs) {
@@ -1250,10 +1237,6 @@ if (url.includes("/interface/sdk/sdkad.php")) {
             // 关闭关注推荐
             if (item?.data?.user?.unfollowing_recom_switch === 1) {
               item.data.user.unfollowing_recom_switch = 0;
-            }
-            // 博主top100
-            if (item?.data?.tag_struct?.length > 0) {
-              item.data.tag_struct = [];
             }
             newItems.push(item);
           } else if (item?.category === "feedBiz") {
@@ -1633,6 +1616,10 @@ function removeSearchHotWords(obj) {
 
 // 移除头像挂件,关注按钮
 function removeAvatar(data) {
+  if (preserveHomeDecorations) {
+    if (data?.buttons) delete data.buttons; // 仍移除关注推荐按钮
+    return; // 头像挂件、会员图标、卡片背景和转发图标原样保留
+  }
   if (data?.block_card_bg) {
     delete data.block_card_bg;
   }
@@ -1696,18 +1683,6 @@ function removeVoteInfo(item) {
 }
 
 
-// 未知字段和容器原样保留；不按 following、标题、category 白名单推断广告。
-function cleanTimeline(node) {
-  if (!node || typeof node !== "object") return;
-  for (const key of ["items", "statuses"]) {
-    if (!Array.isArray(node[key])) continue;
-    node[key] = node[key].filter(item => {
-      if (!item || typeof item !== "object") return true;
-      return ![item, item.data, item.status, item.mblog].some(isNewVideoFlowAd);
-    });
-    for (const item of node[key]) cleanTimeline(item);
-  }
-}
 
 }
 
